@@ -1,0 +1,267 @@
+---
+title: "Hepatitis in US"
+output: html_notebook
+---
+
+*Student: Soltanagha Huseynov*  
+*Matriculation number: 803218*
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code.
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*.
+
+
+## Hepatitis in the United States
+
+The data we will be using come from the Project Tycho data level 2 which is contain 50 diseases 50 US states and 1284 cities. As part of the Centers for Disease Control and Prevention’s (CDC) National Notifiable Diseases Surveillance System (NNDSS) , viral hepatitis case-reports are received electronically from U.S. state and territorial health departments via CDC’s National Electronic Telecommunications System for Surveillance (NETSS), a computerized public health surveillance system that provides CDC with data on a weekly basis. Although the surveillance infrastructure was in place for states to report both acute and chronic infections, case-reports of chronic hepatitis B virus (HBV) and past or present hepatitis C virus (HCV) infections, which account for the greatest burden of disease, were not submitted by all states; in 2014, 40 states submitted reports of chronic HBV infection.
+
+### Hepatitis A
+
+Viral hepatitis is caused by infection with any of at least five distinct viruses: hepatitis A virus (HAV), hepatitis B virus (HBV), hepatitis C virus (HCV), hepatitis D virus (HDV), and hepatitis E virus (HEV). Most viral hepatitis infections in the United States are attributable to HAV, HBV, and HCV. All three of these unrelated viruses can produce an acute illness characterized by nausea, malaise, abdominal pain and jaundice, although many of these acute infections are asymptomatic or cause only mild disease. Thus, many persons infected with HBV or HCV are unaware they are infected and have clinically silent infections for decades until developing cirrhosis, end-stage liver disease, or hepatocellular carcinoma.
+
+---
+
+### Hepatitis B
+HBV is transmitted by percutaneous or mucosal exposure to blood or body fluids of an infected person, such as from an infected mother to her newborn during childbirth, through close personal contact within households, through unscreened blood transfusion or unsafe injections in healthcare settings, through injection drug use, and from sexual contact with an infected person. Adults with diabetes mellitus are at an increased risk of acquiring HBV infection if they share diabetescare equipment such as blood glucose meters, finger stick devices, syringes and/or insulin pens.
+Adults with diabetes aged <60 years are thus recommended to receive hepatitis B vaccination and those aged >60 years are to be considered for vaccination (23).
+Risk for chronic HBV infection decreases with increasing age at infection. Of infants who acquired HBV infection from their mothers at birth, as many as 90% become chronically
+infected, whereas 30%–50% of children infected at age 1–5 years become chronically infected. This percentage is smaller among adults, for whom approximately 5% of all acute HBV
+infections progress to chronic infection.
+
+In this notebook the key question we are interested is: Which counties in the United States had the highest annual infection rate by Hepatitis A and Hepatitis B? Additionally max infection level and how it distributed in timeline of US?
+
+
+
+---
+
+### Getting the Data
+
+The data we are using is available in [Project Tycho](https://www.tycho.pitt.edu) link, any registered user can download it as a .csv file or can access it via API. To get data in R we can use read.csv() function.
+
+
+```{r}
+tycho_data <- read.csv("../ProjectTycho_Level2/ProjectTycho_Level2_.csv")
+```
+
+Here are the first few rows of the data frame.
+
+```{r}
+head(tycho_data)
+```
+
+As we can see each row contains the 6-digit date format indicating the year(first 4 digit) and week of year(last 2 digit), the country, state display where is that happen additionally we have loc_type gives exact city or state type and loc indicate name of that place. Disease column specify name of disease, the event identify what was caused this disease and the number display count of incidences. Furthermore we have week start and end date of period corresponding to from_date , to_date.
+
+R has str() method which gives additional information about data-set.
+```{r}
+str(tycho_data)
+```
+As we can see there are a lot of diseases which isn't interesting for our goal.
+
+Before we start, let's clean and filter data to suitable format for analyse. 
+
+### Data pre-processing
+
+Which kind of hepatitis do we have in data?
+
+```{r}
+sort(unique(tycho_data$disease))
+```
+Here's is it we have only Hepatitis A and Hepatitis B desease. Let's filter it to new variable.
+
+```{r}
+library(dplyr)
+
+hepatitis <- tycho_data %>% filter(disease == 'HEPATITIS A' | disease == 'HEPATITIS B')
+```
+
+
+## Data analyse
+
+We can start from top of timeline as a year based grouping and trying to get more understanding on data. Before to if we have to separate year and week.
+
+```{r}
+hepatitis$year <- as.numeric(substr(hepatitis$epi_week,1,4))
+hepatitis$week <- as.numeric(substr(hepatitis$epi_week,5,6))
+hepatitis$date <- as.Date(paste(hepatitis$year, hepatitis$week, 1, sep="-"), "%Y-%U-%u")
+min(hepatitis$year)
+```
+Infection hepatitis was added in 1951 to the list of diseases to be reported weekly, but notification was known to be incomplete for that year and that's why our start point gonna be 1952.
+
+We can look at 1952 weekly cases and plot it to display distribution.
+
+```{r}
+hepatitis_1952 <- hepatitis  %>% filter(year == 1952) %>% group_by(date,disease) %>% summarise(total_cases = sum(number),.groups = 'drop')
+
+hepatitis_1953 <- hepatitis  %>% filter(year == 1953) %>% group_by(date,disease) %>% summarise(total_cases = sum(number),.groups = 'drop')
+
+
+head(hepatitis_1952)
+head(hepatitis_1953)
+```
+
+```{r}
+library(dygraphs)
+library(xts)
+graph_ready <- xts(x = hepatitis_1952$total_cases, order.by = hepatitis_1952$date)
+
+dygraph(graph_ready) %>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE, colors="#D8AE5A") %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+
+
+```
+Figure 1.1 : Line chart of 1952 total infection cases weekly
+
+```{r}
+graph_ready <- xts(x = hepatitis_1953$total_cases, order.by = hepatitis_1953$date)
+
+dygraph(graph_ready) %>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE, colors="#D8AE5A") %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+```
+Figure 1.2 : Line chart of 1953 total infection cases weekly
+
+First we converted year and week to date for xts library make a timeline based data-set.For visualization we used dygraph library to make more interactive and flexible graph.
+A high incidence of the disease occurred during the late winter and early spring months of 1952. For the corresponding period in 1953, the chart shows bimodal distribution which probably reflects data collection procedures rather than an actual seasonal trend. Although incompletely reported, the 1952 figures indicate a definite peak in February.
+The incidence decreases during the summer months and may reach a low point sometime during the fall months. Sufficient data are not available at this time to establish the season of lowest incidence.
+The provisional number of cases reported in 1953 is 929 compared with 17,039 for 1952. The large number of cases reported during these 2 years indicate that the disease is major health problem. This is particularly true in certain ares of the United States.
+During 1952 and 1953 approximately 60 reports of epidomiological investigations of outbreaks of infectious hepatitis were received by the Public Health Service. There reports accounted for less than 3,000 of the total cases reported.
+Many cases were not considered assosiated with outbreaks, and reports of outbreaks were not received from many States. Some States probably did not report outbreaks because the cases usually occur over a period of several months as the incubation period of disease is from 15 to 35 days.
+The mode of spread for most of the outbreaks was given as personal contact. Food, milk, and water have been considered vehicles of infection, but in only four instances during 1953 and 1955 was water considered as possible vehicles. In several instances the disease was associated with unsanitory living conditions and was among persons in the low socioeconomic group.
+
+Now we have a idea how infection distributed in the beginning of timeline and how inaccurate data can falsify analysis results. Back to the question, when we have highest incident rate and where?
+
+First we have to visualize year based distribution and then detect when it happen.
+```{r}
+hepatitis_yearly <- hepatitis %>% group_by(year) %>% summarise(total_cases = sum(number), .groups = 'drop')
+head(hepatitis_yearly)
+```
+
+```{r}
+library(ggplot2)
+library(hrbrthemes)
+library(viridis)
+hepatitis_yearly$color <- distinctColorPalette(k=45)
+
+hepatitis_yearly %>% arrange(desc(total_cases)) %>% mutate(country = factor(year, year)) %>% ggplot(aes(x=total_cases, y=year, size = total_cases, fill=color)) +
+ geom_point(alpha=0.5, shape=21, color="black") + scale_size(range = c(.1, 23), name="Total cases yearly") + scale_fill_viridis(discrete=TRUE, guide=FALSE, option="A") +
+ theme_ipsum() + theme(legend.position="bottom") + ylab("Years") + xlab("Total cases") + theme(legend.position = "none")
+
+```
+Figure 2.1 : Bubble plot total infection cases year based
+
+From the bubble plot, we can see that there are most big bubbles concentrated around 70s and 1961. These points might be worth looking individually or more small group as a period 1960 - 1970.
+
+```{r}
+hepatitis_60_80 <- hepatitis  %>% filter(year >= 1960 & year <= 1970) %>% group_by(year) %>% summarise(total_cases = sum(number),.groups = 'drop')
+
+hepatitis_60_80 %>%
+  mutate(name = fct_reorder(as.factor(year), total_cases)) %>%
+  ggplot( aes(x=year, y=total_cases)) +
+    geom_bar(stat="identity", fill="#f68060", alpha=.8, width=.7) +
+    coord_flip() +
+    xlab("Year") + ylab("Total cases")+
+    theme_bw()
+
+
+```
+Figure 2.2 : Bar plot total infection cases year based between 1960 and 1970
+
+A Bar plot is useful to look at when we want to see more detail on the full distribution of the data. The large number of cases reported during these 4 years between 1966 and 1970 , but we have highest infection with 67,930 for 1961.After identifying highest year we can explore state based cases in US.
+
+```{r}
+
+library(usmap)
+hepatitis_1961 <- hepatitis %>% filter(year == 1961) %>% group_by(state,loc) %>% summarise(total_cases = sum(number), .groups = 'drop')
+
+plot_usmap(data = hepatitis_1961, values = "total_cases", color = "red", labels = TRUE) + 
+   scale_fill_distiller("Total Cases (1961)", palette="Spectral") + theme(legend.position = "right")
+
+```
+
+Figure 3.1 : Map describe 1961 state based infection. Red is higher, blue is lower cases.
+
+Distribution on map indicates CA (CALIFORNIA) highest accordingly the OH (OHIO) , MI(MICHIGAN) and NY (NEW YORK) states has more than 4,000 infection cases in 1961. We only say infection is high on these states but there are a lot of metrics we have to take count, and one of them is annual rate of infection which depend on population of state. But we don't have population for 1961 that's we will approximately calculate it with 1975s data.
+
+```{r}
+library(tibble)
+
+states_pop <- rownames_to_column(data.frame(state.x77), "loc")
+states_pop$loc <- toupper(states_pop$loc)
+
+hepatitis_1961_pop <- left_join(hepatitis_1961, states_pop, by='loc', all.x=TRUE)
+hepatitis_1961_pop[is.na(hepatitis_1961_pop)] <- 0
+hepatitis_1961_pop$annual_rate <- (hepatitis_1961_pop$total_cases / hepatitis_1961_pop$Population)
+
+head(hepatitis_1961_pop)
+
+```
+
+
+```{r}
+
+plot_usmap(data = hepatitis_1961_pop, values = "annual_rate", color = "red", labels = TRUE) + 
+   scale_fill_distiller("Annual rate (1961)", palette="Spectral") + theme(legend.position = "right")
+
+```
+Figure 3.2 : Map describe 1961 state based annual infection rate. Red is higher, blue is lower cases.
+
+On map highest rate in AK (ALASKA) but if we will look for total cases and population there is a mistake, total cases (409) more than population (365). It can be caused by data mismatch as we use different years or collected cases issues. On the other hand KY(KENTUCKY) and TN (TENNESSEE)  display highest rate 0.901 and 0.911 on these states.
+
+```{r}
+hist(hepatitis_1961_pop$annual_rate, col = "yellow", xlab = 'Annual rate',  main = "Histogram of annual rate") 
+rug(hepatitis_1961_pop$annual_rate)
+
+```
+Figure 4.1 : Histogram of annual rate in 1961.
+
+This distribution is interesting because there appears to be a high concentration of counties in the neighborhood of 0.2 to 0.4 annual rate.
+
+With progressive infant hepatitis A vaccination recommendations since 1996 and universal infant vaccination since 2006, vaccination rates and evidence of vaccine-induced immunity in young persons have increased in the past decade. Despite protection among young persons, many older adults have not been vaccinated and are therefore susceptible to infection. 
+
+```{r}
+hepatitis_1995 <- hepatitis %>% filter(year > 1995) %>% group_by(year, disease) %>% summarise(total_cases = sum(number), .groups = 'drop')
+
+head(hepatitis_1995)
+```
+
+```{r}
+ggplot(hepatitis_1995, aes(x = as.factor(year), y = disease, fill = total_cases)) +
+  ggtitle("Annual infection rates") +
+  xlab("Year") + ylab("Disease") +
+  geom_tile(color = "black") +
+  scale_fill_gradient2(low = "#075AFF",
+                       mid = "#FFFFCC",
+                       high = "#FF0000")+
+  geom_text(aes(label = total_cases), color = "black", size = 4) +
+  coord_fixed()
+```
+Figure 5: Heatmap of annual rate between 2006-2014.
+
+We have gap between 1996 - 2005 that's why it makes impossible to approve it with data.The number of hepatitis cases reported in the United States has declined, from 3,934 reported cases in 2006 to 1,031 reported cases in 2014.The number of hepatitis A cases reported in the United States has declined, from 1,752 reported cases in 2006 to 271 reported cases in 2014. In 2014, a total of 271 cases of acute hepatitis B were reported from 48 states (Figure 5). The overall incidence rate for 2014 was 0.01 cases per 100,000 population.
+
+---
+
+### Summary
+
+It can be observed that southern states had a noticeably higher number of cases than the northern states. California and Florida had the largest number of incidents, when South Dakota had the smallest number of cases.
+Project Tycho data for acute viral hepatitis provide essential information for identifying patterns and trends in viral hepatitis, providing data for national and local estimates of the health burden of hepatitis A and B targeting groups for whom public health intervention is needed, and evaluating intervention efforts. National rates for acute hepatitis A and B have been collected since 1952. Major changes in the epidemiology of these diseases have occurred since Tycho reporting of these infections was initiated, largely resulting from implementation of prevention strategies, including the introduction of effective vaccines against hepatitis A and hepatitis B. NNDSS, the core of viral hepatitis surveillance, was designed to enable states to notify CDC of infectious diseases diagnosed with a single positive laboratory test. Cases of acute and chronic
+hepatitis B and C do not fit this pattern, as additional information beyond a single laboratory test is required to confirm a case. To better count and characterize cases of viral hepatitis and estimate the burden of disease.
+CDC and state health departments rely on surveillance data to track the incidence of acute infection, guide development and evaluation of programs and policies designed to prevent infection and minimize the public health impact of viral hepatitis, and monitor progress towards achieving goals established for these programs and policies. Effective systems for conducting surveillance for chronic HAV and HBV infections are needed to ensure accurate reporting of all cases and to support and evaluate prevention activities. Additional investments in surveillance at the local, state, and national levels are essential to build strong prevention programs that interrupt transmission of viral hepatitis and improve the health of those who are currently infected.
+
+
+---
+
+### Referances
+
+* https://r-graph-gallery.com/
+* https://www.tycho.pitt.edu/global-health-research/
+* https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5100695/
+* https://stacks.cdc.gov/view/cdc72320
+* https://eriqande.github.io/rep-res-web/lectures/making-maps-with-R.html
